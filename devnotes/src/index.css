@@ -1,0 +1,188 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html, body, #root {
+    height: 100%;
+  }
+
+  body {
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow: hidden;
+  }
+
+  /* Custom scrollbar — only in dark mode we like this */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #1f2937;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #2d3a4f;
+    background-clip: content-box;
+  }
+
+  /* Selection */
+  ::selection {
+    background: rgba(34, 211, 238, 0.3);
+    color: #fff;
+  }
+
+  /* Focus ring */
+  *:focus-visible {
+    outline: 2px solid #22d3ee;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@layer components {
+  .surface {
+    @apply bg-bg-surface border border-border rounded-xl;
+  }
+  .surface-elevated {
+    @apply bg-bg-elevated border border-border rounded-xl shadow-card;
+  }
+  .btn {
+    @apply inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium
+           transition-colors duration-150 select-none;
+  }
+  .btn-primary {
+    @apply btn bg-accent text-bg-base hover:bg-accent-hover;
+  }
+  .btn-ghost {
+    @apply btn text-fg-muted hover:text-fg hover:bg-bg-elevated;
+  }
+  .btn-outline {
+    @apply btn border border-border text-fg hover:border-border-strong hover:bg-bg-elevated;
+  }
+  .btn-danger {
+    @apply btn bg-red-500/10 text-red-300 hover:bg-red-500/20;
+  }
+  .input {
+    @apply w-full bg-bg-inset border border-border rounded-md px-3 py-2 text-sm
+           placeholder:text-fg-subtle
+           focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full
+           bg-bg-elevated border border-border text-xs text-fg-muted;
+  }
+  .kbd {
+    @apply inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5
+           text-[11px] font-mono font-medium text-fg-muted
+           bg-bg-elevated border border-border rounded;
+  }
+  .bidi-plaintext {
+    unicode-bidi: plaintext;
+    text-align: start;
+  }
+}
+
+/* Markdown content styling (used inside .prose-devnotes) */
+.prose-devnotes {
+  @apply text-fg leading-relaxed;
+}
+.prose-devnotes h1,
+.prose-devnotes h2,
+.prose-devnotes h3,
+.prose-devnotes h4,
+.prose-devnotes h5,
+.prose-devnotes h6,
+.prose-devnotes p,
+.prose-devnotes li,
+.prose-devnotes blockquote,
+.prose-devnotes td,
+.prose-devnotes th {
+  unicode-bidi: plaintext;
+  text-align: start;
+}
+.prose-devnotes pre,
+.prose-devnotes code {
+  direction: ltr;
+  unicode-bidi: isolate;
+  text-align: left;
+}
+.prose-devnotes h1 { @apply text-2xl font-bold mt-6 mb-3 text-fg; }
+.prose-devnotes h2 { @apply text-xl font-semibold mt-5 mb-2 text-fg; }
+.prose-devnotes h3 { @apply text-lg font-semibold mt-4 mb-2 text-fg; }
+.prose-devnotes p  { @apply my-3; }
+.prose-devnotes ul { @apply list-disc pl-6 my-3 space-y-1; }
+.prose-devnotes ol { @apply list-decimal pl-6 my-3 space-y-1; }
+.prose-devnotes a  { @apply text-accent hover:underline; }
+.prose-devnotes code:not(pre code) {
+  @apply px-1.5 py-0.5 rounded bg-bg-inset text-accent font-mono text-[0.9em];
+}
+.prose-devnotes pre {
+  @apply bg-bg-inset border border-border rounded-lg p-4 my-4 overflow-x-auto;
+}
+.prose-devnotes pre code {
+  @apply font-mono text-sm leading-relaxed;
+}
+.prose-devnotes blockquote {
+  @apply border-l-4 border-accent/50 pl-4 my-3 text-fg-muted italic;
+}
+.prose-devnotes table {
+  @apply w-full my-4 border-collapse;
+}
+.prose-devnotes th, .prose-devnotes td {
+  @apply border border-border px-3 py-2 text-left;
+}
+.prose-devnotes th {
+  @apply bg-bg-elevated font-semibold;
+}
+.prose-devnotes hr {
+  @apply border-border my-6;
+}
+.prose-devnotes .wikilink {
+  @apply text-accent cursor-pointer hover:underline;
+}
+
+/* Cloze (==highlight==) styling for recall mode */
+.cloze-hidden {
+  background: #2d3a4f;
+  color: transparent;
+  border-radius: 3px;
+  padding: 0 4px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 150ms;
+}
+.cloze-hidden:hover {
+  background: #374151;
+}
+.cloze-revealed {
+  background: rgba(34, 211, 238, 0.15);
+  color: #67e8f9;
+  border-radius: 3px;
+  padding: 0 4px;
+}
+
+/* Highlight.js — minimal dark theme override */
+.hljs {
+  background: transparent !important;
+  color: #e5e7eb;
+}
+.hljs-keyword, .hljs-built_in, .hljs-type { color: #c084fc; }
+.hljs-string, .hljs-attr { color: #86efac; }
+.hljs-number, .hljs-literal { color: #fbbf24; }
+.hljs-comment { color: #6b7280; font-style: italic; }
+.hljs-function, .hljs-title { color: #67e8f9; }
+.hljs-variable, .hljs-name { color: #fda4af; }
+.hljs-tag { color: #f472b6; }
+.hljs-symbol, .hljs-meta { color: #facc15; }
