@@ -93,7 +93,10 @@ export function Dashboard() {
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       {/* Greeting */}
-      <div className="surface-elevated p-6 bg-grid-fade relative overflow-hidden">
+      <div
+        data-tour="dashboard-greeting"
+        className="surface-elevated p-6 bg-grid-fade relative overflow-hidden"
+      >
         <div className="absolute top-0 right-0 w-72 h-72 bg-accent/5 rounded-full blur-3xl" />
         <div className="relative">
           <div className="text-xs text-fg-muted uppercase tracking-wider mb-1">

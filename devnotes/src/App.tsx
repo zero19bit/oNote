@@ -5,17 +5,26 @@ import { Topbar } from "./components/Layout/Topbar";
 import { CommandPalette } from "./components/CommandPalette/CommandPalette";
 import { QuickCapture } from "./components/QuickCapture/QuickCapture";
 import { Toasts } from "./components/Toasts";
+import { OnboardingTour } from "./components/OnboardingTour/OnboardingTour";
+import { PlatformPicker } from "./components/PlatformPicker/PlatformPicker";
 import { useUI } from "./store/ui";
 import { AchievementToaster } from "./components/AchievementToaster";
 import { initAchievementWatchers } from "./lib/achievements";
 
 export default function App() {
+  // Hooks must always be called in the same order — never wrap them in
+  // try/catch. `useUI` is a thin wrapper over `useSyncExternalStore`,
+  // which doesn't throw under normal conditions.
   const init = useUI((s) => s.init);
   const navigate = useNavigate();
 
   useEffect(() => {
-    init();
-    initAchievementWatchers();
+    try {
+      init();
+      initAchievementWatchers();
+    } catch (e) {
+      console.error("[onote] init failed", e);
+    }
   }, [init]);
 
   // quick navigation wrapper for the command palette
@@ -36,6 +45,8 @@ export default function App() {
       <QuickCapture />
       <Toasts />
       <AchievementToaster />
+      <OnboardingTour />
+      <PlatformPicker />
     </div>
   );
 }

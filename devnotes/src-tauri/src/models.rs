@@ -29,10 +29,26 @@ pub struct Note {
     pub content: String,
     pub tags: Vec<String>,
     pub skill_id: Option<String>,
+    /// Legacy single-project link. Kept for backward compatibility and
+    /// as a fast path for "primary project" rendering. The source of
+    /// truth for the many-to-many relation is the `note_projects` table.
+    pub project_id: Option<String>,
+    /// All projects this note is linked to (many-to-many).
+    /// Populated by the list/get commands; not persisted on the `notes` row.
+    #[serde(default)]
+    pub project_ids: Vec<String>,
+    /// Apple-Notes-style color tag. One of: "default" | "yellow" | "red"
+    /// | "green" | "blue" | "purple" | "gray".
+    #[serde(default = "default_note_color")]
+    pub color: String,
     pub is_pinned: bool,
     pub is_archived: bool,
     pub created_at: String,
     pub updated_at: String,
+}
+
+fn default_note_color() -> String {
+    "default".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -56,6 +72,8 @@ pub struct Resource {
     pub url: String,
     #[serde(rename = "type")]
     pub kind: String,
+    pub source_mode: String,
+    pub local_path: String,
     pub status: String,
     pub progress: i64,
     pub description: String,

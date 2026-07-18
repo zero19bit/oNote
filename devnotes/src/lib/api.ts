@@ -49,11 +49,40 @@ export interface Note {
   content: string;
   tags: string[];
   skill_id: string | null;
+  /** Legacy single-project link. Mirrors the first item of `project_ids`
+   *  (or null if the note is unlinked). Kept for backward compatibility. */
+  project_id: string | null;
+  /** All projects this note is linked to (many-to-many). */
+  project_ids: string[];
+  /** Apple-Notes-style color tag. One of:
+   *  "default" | "yellow" | "red" | "green" | "blue" | "purple" | "gray" */
+  color: NoteColor;
   is_pinned: boolean;
   is_archived: boolean;
   created_at: string;
   updated_at: string;
 }
+
+export type NoteColor =
+  | "default"
+  | "yellow"
+  | "red"
+  | "green"
+  | "blue"
+  | "purple"
+  | "gray";
+
+/** Display metadata for note colors. `bg` is a soft background tint used
+ *  for the card and editor; `dot` is a stronger accent for chips/indicators. */
+export const NOTE_COLORS: { id: NoteColor; label: string; bg: string; dot: string }[] = [
+  { id: "default", label: "Default", bg: "bg-bg-surface", dot: "bg-fg-muted" },
+  { id: "yellow",  label: "Yellow",  bg: "bg-amber-500/15",  dot: "bg-amber-400" },
+  { id: "red",     label: "Red",     bg: "bg-red-500/15",    dot: "bg-red-400" },
+  { id: "green",   label: "Green",   bg: "bg-emerald-500/15",dot: "bg-emerald-400" },
+  { id: "blue",    label: "Blue",    bg: "bg-sky-500/15",    dot: "bg-sky-400" },
+  { id: "purple",  label: "Purple",  bg: "bg-violet-500/15", dot: "bg-violet-400" },
+  { id: "gray",    label: "Gray",    bg: "bg-slate-500/15",  dot: "bg-slate-400" },
+];
 
 export interface Snippet {
   id: string;
@@ -68,7 +97,8 @@ export interface Snippet {
   updated_at: string;
 }
 
-export type ResourceKind = "article" | "video" | "course" | "book" | "podcast";
+export type ResourceKind = "video" | "course" | "book" | "podcast" | "website";
+export type ResourceSourceMode = "url" | "local";
 export type ResourceStatus = "to_read" | "in_progress" | "done" | "archived";
 
 export interface Resource {
@@ -76,6 +106,8 @@ export interface Resource {
   title: string;
   url: string;
   type: ResourceKind;
+  source_mode: ResourceSourceMode;
+  local_path: string;
   status: ResourceStatus;
   progress: number; // 0..100
   description: string;
@@ -165,6 +197,15 @@ export const createNote = (input: Partial<Note> & { title: string }) =>
 export const updateNote = (id: string, input: Partial<Note> & { title: string }) =>
   call<void>("update_note", { id, input });
 export const deleteNote = (id: string) => call<void>("delete_note", { id });
+/** Legacy single-project setter. Prefer `setNoteProjects` for new code. */
+export const setNoteProject = (id: string, projectId: string | null) =>
+  call<void>("set_note_project", { id, projectId });
+/** Replace the full set of projects for a note (many-to-many). */
+export const setNoteProjects = (id: string, projectIds: string[]) =>
+  call<void>("set_note_projects", { id, projectIds });
+/** Set the Apple-Notes-style color tag for a note. */
+export const setNoteColor = (id: string, color: NoteColor) =>
+  call<void>("set_note_color", { id, color });
 
 // Snippets
 export const listSnippets = () => call<Snippet[]>("list_snippets");
@@ -177,11 +218,14 @@ export const bumpUsage = (id: string) => call<void>("bump_usage", { id });
 
 // Resources
 export const listResources = () => call<Resource[]>("list_resources");
+export const getResource = (id: string) => call<Resource>("get_resource", { id });
 export const createResource = (input: Partial<Resource> & { title: string }) =>
   call<Resource>("create_resource", { input });
 export const updateResource = (id: string, input: Partial<Resource> & { title: string }) =>
   call<void>("update_resource", { id, input });
 export const deleteResource = (id: string) => call<void>("delete_resource", { id });
+export const stageResourceFile = (sourcePath: string, resourceId: string) =>
+  call<string>("stage_resource_file", { sourcePath, resourceId });
 
 // Projects
 export const listProjects = () => call<Project[]>("list_projects");
@@ -194,6 +238,8 @@ export const attachSkill = (projectId: string, skillId: string) =>
   call<void>("attach_skill", { projectId, skillId });
 export const detachSkill = (projectId: string, skillId: string) =>
   call<void>("detach_skill", { projectId, skillId });
+export const listProjectNotes = (projectId: string) =>
+  call<Note[]>("list_project_notes", { projectId });
 
 // Daily
 export const listDailyEntries = (limit = 60) =>

@@ -11,7 +11,7 @@ import {
   Inbox as InboxIcon,
   Share2,
   Settings as SettingsIcon,
-  Github,
+  Code2 as GithubIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
@@ -151,7 +151,7 @@ export function Sidebar() {
           rel="noreferrer"
           className="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-fg-subtle hover:text-fg-muted transition-colors"
         >
-          <Github size={14} />
+          <GithubIcon size={14} />
           <span className="text-xs">v0.1.0</span>
         </a>
       </div>

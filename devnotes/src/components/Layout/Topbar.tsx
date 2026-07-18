@@ -1,6 +1,7 @@
 import { useLocation } from "react-router-dom";
 import { Search, Plus, Zap } from "lucide-react";
 import { useUI } from "@/store/ui";
+import { cmdKey, shortcutKeys } from "@/lib/utils";
 
 const titles: Record<string, { title: string; subtitle: string }> = {
   "/": { title: "Dashboard", subtitle: "Your knowledge at a glance" },
@@ -26,6 +27,9 @@ export function Topbar() {
   const meta = titles[key] ?? titles["/"];
   const toggle = useUI((s) => s.toggleCommandPalette);
   const capture = useUI((s) => s.toggleQuickCapture);
+  const platform = useUI((s) => s.platform);
+  const paletteKeys = shortcutKeys(platform, "mod", "k");
+  const captureKeys = shortcutKeys(platform, "mod", "shift", "a");
 
   return (
     <header className="h-14 border-b border-border bg-bg-surface/50 backdrop-blur flex items-center px-6 gap-4">
@@ -35,19 +39,29 @@ export function Topbar() {
       </div>
 
       <button
+        data-tour="command-palette-trigger"
         onClick={toggle}
         className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-bg-inset border border-border hover:border-border-strong text-xs text-fg-muted w-72"
       >
         <Search size={14} />
         <span className="flex-1 text-left">Search anything...</span>
-        <span className="kbd">Ctrl</span>
-        <span className="kbd">K</span>
+        {paletteKeys.map((k, i) => (
+          <span key={i} className="kbd">{k}</span>
+        ))}
       </button>
 
-      <button onClick={capture} className="btn-outline">
+      <button
+        data-tour="quick-capture"
+        onClick={capture}
+        className="btn-outline"
+      >
         <Zap size={14} />
         Quick Capture
-        <span className="kbd ml-1">⌘⇧A</span>
+        <span className="flex items-center gap-1 ml-1">
+          {captureKeys.map((k, i) => (
+            <span key={i} className="kbd">{k}</span>
+          ))}
+        </span>
       </button>
 
       <button

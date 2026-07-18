@@ -11,9 +11,65 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
+    <style>
+      /* Always-visible boot status. The Tauri webview is dark blue and
+         the app body is also dark, so without this you'd see a single
+         uniform color and not be able to tell if React rendered or not.
+         main.tsx hides this once the React tree is on screen. */
+      #onote-boot {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 14px;
+        color: #fca5a5;
+        background: #0b0f17;
+        z-index: 2147483647;
+        pointer-events: none;
+        text-align: center;
+        padding: 24px;
+        white-space: pre-wrap;
+        line-height: 1.5;
+      }
+      #onote-boot.hidden { display: none; }
+    </style>
   </head>
   <body class="bg-bg-base text-fg antialiased">
+    <div id="onote-boot">oNote is starting…</div>
     <div id="root"></div>
+    <script>
+      // Classic (non-module) script that runs synchronously. Captures any
+      // error that prevents the module bundle from loading or executing.
+      // Module errors normally don't fire the window error event, so we
+      // also watch unhandledrejection.
+      (function () {
+        var el = document.getElementById("onote-boot");
+        function show(msg) {
+          if (!el) return;
+          el.textContent = msg;
+        }
+        window.__onoteBootHide = function () {
+          if (el) el.classList.add("hidden");
+        };
+        window.addEventListener("error", function (e) {
+          var m = e && (e.error && (e.error.stack || e.error.message) || e.message);
+          show("[onote] script error\n\n" + m);
+        });
+        window.addEventListener("unhandledrejection", function (e) {
+          var r = e && e.reason;
+          var m = r && (r.stack || r.message) || String(r);
+          show("[onote] unhandled rejection\n\n" + m);
+        });
+        // If the module never finishes within 8s, surface a hint.
+        setTimeout(function () {
+          if (el && !el.classList.contains("hidden")) {
+            show("oNote is still starting…\n\nIf this stays here, the JS bundle failed to mount. Check DevTools console.");
+          }
+        }, 8000);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

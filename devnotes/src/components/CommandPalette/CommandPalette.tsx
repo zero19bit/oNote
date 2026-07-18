@@ -25,8 +25,8 @@ const pages: Result[] = [
 ];
 
 export function CommandPalette() {
-  const open = useUI((s) => s.commandPaletteOpen);
-  const setOpen = useUI((s) => s.setCommandPalette);
+  const open = useUI((s: any) => s.commandPaletteOpen);
+  const setOpen = useUI((s: any) => s.setCommandPalette);
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [data, setData] = useState<Result[]>([]);
@@ -144,6 +144,7 @@ export function CommandPalette() {
               }
             }}
             placeholder="Search skills, notes, snippets, resources..."
+            dir="auto"
             className="flex-1 bg-transparent outline-none text-sm"
           />
           <span className="kbd">Esc</span>

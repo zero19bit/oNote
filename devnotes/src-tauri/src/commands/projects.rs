@@ -117,3 +117,7 @@ pub async fn detach_skill(db: State<'_, SqlitePool>, project_id: String, skill_i
         .map_err(AppError::from)?;
     Ok(())
 }
+
+// NOTE: list_project_notes lives in commands/notes.rs because it now needs
+// to JOIN the note_projects table and return the same Note shape as
+// list_notes (including project_ids).

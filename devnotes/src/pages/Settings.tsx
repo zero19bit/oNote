@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Download, Upload, Trash2, Trophy, Database, Keyboard, Info } from "lucide-react";
+import { Download, Upload, Trash2, Trophy, Database, Keyboard, Info, HelpCircle, Languages, RotateCcw, Apple, Monitor, Terminal } from "lucide-react";
 import {
   listSkills,
   listNotes,
@@ -10,14 +10,30 @@ import {
   listInbox,
   listAchievements,
 } from "@/lib/api";
-import { useUI } from "@/store/ui";
+import { useUI, type Platform } from "@/store/ui";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
+import { cn, shortcutKeys } from "@/lib/utils";
 
 export function Settings() {
   const [counts, setCounts] = useState<any>({});
   const [achievements, setAchievements] = useState<any[]>([]);
   const pushToast = useUI((s) => s.pushToast);
+  const startTour = useUI((s) => s.startTour);
+  const resetTour = useUI((s) => s.resetTour);
+  const direction = useUI((s) => s.direction);
+  const setDirection = useUI((s) => s.setDirection);
+  const platform = useUI((s) => s.platform);
+  const setPlatform = useUI((s) => s.setPlatform);
+
+  // Shortcut definitions — one source of truth, rendered platform-aware.
+  const shortcuts: Array<{ label: string; parts: ("mod" | "shift" | "alt" | string)[] }> = [
+    { label: "Command palette",         parts: ["mod", "k"] },
+    { label: "Quick capture (in app)",  parts: ["mod", "shift", "a"] },
+    { label: "Quick capture (global)",  parts: ["mod", "shift", "space"] },
+    { label: "Focus search",            parts: ["mod", "/"] },
+    { label: "New (context-aware)",     parts: ["Topbar + button"] },
+  ];
 
   useEffect(() => {
     (async () => {
@@ -122,17 +138,60 @@ export function Settings() {
 
       <Section icon={Keyboard} title="Keyboard shortcuts" subtitle="Work faster.">
         <div className="space-y-1.5 text-sm">
-          {[
-            ["Command palette", "Ctrl + K"],
-            ["Quick capture (in app)", "Ctrl + Shift + A"],
-            ["Quick capture (global)", "Ctrl + Shift + Space"],
-            ["Focus search", "Ctrl + /"],
-            ["New (context-aware)", "Topbar + button"],
-          ].map(([label, keys]) => (
-            <div key={label} className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
-              <span className="text-fg-muted">{label}</span>
-              <span className="kbd">{keys}</span>
-            </div>
+          {shortcuts.map((s) => {
+            if (s.parts[0] === "Topbar + button") {
+              return (
+                <div key={s.label} className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
+                  <span className="text-fg-muted">{s.label}</span>
+                  <span className="text-fg-subtle text-xs">Topbar + button</span>
+                </div>
+              );
+            }
+            const keys = shortcutKeys(platform, ...s.parts as any);
+            return (
+              <div key={s.label} className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
+                <span className="text-fg-muted">{s.label}</span>
+                <span className="flex items-center gap-1">
+                  {keys.map((k, i) => (
+                    <span key={i} className="kbd">{k}</span>
+                  ))}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-[11px] text-fg-subtle mt-2">
+          Showing shortcuts for <span className="text-fg-muted">{platform === "mac" ? "macOS" : platform === "linux" ? "Linux" : "Windows"}</span>. Change below if needed.
+        </p>
+      </Section>
+
+      <Section icon={Monitor} title="Platform" subtitle="Shortcuts adapt to your OS">
+        <p className="text-sm text-fg-muted mb-3">
+          Pick the OS you use so we render the right key glyphs (⌘ on Mac, Ctrl elsewhere).
+          This only affects how shortcuts look — the actual keys still work either way.
+        </p>
+        <div className="inline-flex rounded-md border border-border overflow-hidden">
+          {([
+            { p: "mac" as Platform,     label: "macOS",   Icon: Apple },
+            { p: "windows" as Platform, label: "Windows", Icon: Monitor },
+            { p: "linux" as Platform,   label: "Linux",   Icon: Terminal },
+          ]).map(({ p, label, Icon }, i) => (
+            <button
+              key={p}
+              onClick={() => {
+                setPlatform(p);
+                pushToast(`Shortcuts set for ${label}`, "success");
+              }}
+              className={cn(
+                "px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5",
+                i > 0 && "border-l border-border",
+                platform === p
+                  ? "bg-accent text-bg-base"
+                  : "text-fg-muted hover:text-fg hover:bg-bg-elevated"
+              )}
+            >
+              <Icon size={12} /> {label}
+            </button>
           ))}
         </div>
       </Section>
@@ -155,6 +214,77 @@ export function Settings() {
             ))}
           </div>
         )}
+      </Section>
+
+      <Section icon={HelpCircle} title="Onboarding tour" subtitle="A step-by-step guide to oNote's UI">
+        <p className="text-sm text-fg-muted mb-3">
+          Already finished the tour or want a refresher? Replay it any time to see what's where.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => {
+              startTour();
+              pushToast("Tour started", "info");
+            }}
+            className="btn-outline"
+          >
+            <HelpCircle size={14} />
+            Replay tour
+          </button>
+          <button
+            onClick={() => {
+              resetTour();
+              pushToast("Tour reset — it will also show on next launch", "success");
+            }}
+            className="btn-outline"
+          >
+            <RotateCcw size={14} />
+            Reset & replay
+          </button>
+        </div>
+      </Section>
+
+      <Section
+        icon={Languages}
+        title="Layout direction"
+        subtitle="Switch between left-to-right and right-to-left for mixed-language content"
+      >
+        <p className="text-sm text-fg-muted mb-3">
+          Most of the app is LTR, but enabling RTL helps when you write or paste Persian/Arabic text and want it to flow naturally.
+        </p>
+        <div className="inline-flex rounded-md border border-border overflow-hidden">
+          <button
+            onClick={() => {
+              setDirection("ltr");
+              pushToast("Direction: LTR", "info");
+            }}
+            className={cn(
+              "px-4 py-1.5 text-xs font-medium transition-colors",
+              direction === "ltr"
+                ? "bg-accent text-bg-base"
+                : "text-fg-muted hover:text-fg hover:bg-bg-elevated"
+            )}
+          >
+            LTR
+          </button>
+          <button
+            onClick={() => {
+              setDirection("rtl");
+              pushToast("Direction: RTL", "info");
+            }}
+            className={cn(
+              "px-4 py-1.5 text-xs font-medium transition-colors border-l border-border",
+              direction === "rtl"
+                ? "bg-accent text-bg-base"
+                : "text-fg-muted hover:text-fg hover:bg-bg-elevated"
+            )}
+          >
+            RTL
+          </button>
+        </div>
+        <p className="text-[11px] text-fg-subtle mt-2">
+          Current: <span className="font-mono text-fg-muted">{direction.toUpperCase()}</span> · Saved to localStorage
+        </p>
       </Section>
 
       <Section icon={Info} title="About" subtitle="DevNotes — a knowledge vault for programmers.">

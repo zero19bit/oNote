@@ -2,11 +2,14 @@ import { useEffect, useState } from "react";
 import { X, Zap, Inbox as InboxIcon } from "lucide-react";
 import { useUI } from "@/store/ui";
 import { addInbox } from "@/lib/api";
+import { shortcutKeys } from "@/lib/utils";
 
 export function QuickCapture() {
   const open = useUI((s) => s.quickCaptureOpen);
   const setOpen = useUI((s) => s.setQuickCapture);
   const pushToast = useUI((s) => s.pushToast);
+  const platform = useUI((s) => s.platform);
+  const submitKeys = shortcutKeys(platform, "mod", "↵");
   const [content, setContent] = useState("");
 
   useEffect(() => {
@@ -55,7 +58,6 @@ export function QuickCapture() {
           autoFocus
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          dir="auto"
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
               e.preventDefault();
@@ -64,6 +66,7 @@ export function QuickCapture() {
             if (e.key === "Escape") setOpen(false);
           }}
           placeholder="Type a thought, link, code snippet, anything..."
+          dir="auto"
           className="w-full bg-transparent p-4 outline-none resize-none text-sm min-h-[120px] placeholder:text-fg-subtle bidi-plaintext"
         />
 
@@ -77,7 +80,12 @@ export function QuickCapture() {
               Cancel
             </button>
             <button onClick={submit} className="btn-primary">
-              Capture <span className="kbd ml-1">⌘↵</span>
+              Capture
+              <span className="flex items-center gap-1 ml-1">
+                {submitKeys.map((k, i) => (
+                  <span key={i} className="kbd">{k}</span>
+                ))}
+              </span>
             </button>
           </div>
         </div>

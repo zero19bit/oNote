@@ -84,12 +84,35 @@ pub fn map_to_note(map: &HashMap<String, serde_json::Value>) -> AppResult<Note> 
         .and_then(|v| v.as_str())
         .unwrap_or("[]")
         .to_string();
+    // If the caller already populated `project_ids` (e.g. via a JOIN) use
+    // that; otherwise fall back to the legacy single `project_id` so the
+    // helper still works for callers that didn't join.
+    let project_ids: Vec<String> = match map.get("project_ids") {
+        Some(serde_json::Value::String(s)) => parse_tags(s).unwrap_or_default(),
+        Some(serde_json::Value::Array(arr)) => arr
+            .iter()
+            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+            .collect(),
+        _ => Vec::new(),
+    };
+    let project_id = if !project_ids.is_empty() {
+        Some(project_ids[0].clone())
+    } else {
+        map.get("project_id").and_then(|v| v.as_str()).map(|s| s.to_string())
+    };
     Ok(Note {
         id: map.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
         title: map.get("title").and_then(|v| v.as_str()).unwrap_or("").to_string(),
         content: map.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string(),
         tags: parse_tags(&tags_str)?,
         skill_id: map.get("skill_id").and_then(|v| v.as_str()).map(|s| s.to_string()),
+        project_id,
+        project_ids,
+        color: map
+            .get("color")
+            .and_then(|v| v.as_str())
+            .unwrap_or("default")
+            .to_string(),
         is_pinned: map.get("is_pinned").and_then(|v| v.as_i64()).unwrap_or(0) != 0,
         is_archived: map.get("is_archived").and_then(|v| v.as_i64()).unwrap_or(0) != 0,
         created_at: map.get("created_at").and_then(|v| v.as_str()).unwrap_or("").to_string(),
@@ -127,7 +150,17 @@ pub fn map_to_resource(map: &HashMap<String, serde_json::Value>) -> AppResult<Re
         id: map.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
         title: map.get("title").and_then(|v| v.as_str()).unwrap_or("").to_string(),
         url: map.get("url").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-        kind: map.get("type").and_then(|v| v.as_str()).unwrap_or("article").to_string(),
+        kind: map.get("type").and_then(|v| v.as_str()).unwrap_or("website").to_string(),
+        source_mode: map
+            .get("source_mode")
+            .and_then(|v| v.as_str())
+            .unwrap_or("url")
+            .to_string(),
+        local_path: map
+            .get("local_path")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
         status: map.get("status").and_then(|v| v.as_str()).unwrap_or("to_read").to_string(),
         progress: map.get("progress").and_then(|v| v.as_i64()).unwrap_or(0),
         description: map.get("description").and_then(|v| v.as_str()).unwrap_or("").to_string(),

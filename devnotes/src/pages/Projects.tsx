@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Plus,
   Search,
@@ -11,6 +12,9 @@ import {
   Play,
   Sparkles,
   CalendarDays,
+  FileText,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import {
   listProjects,
@@ -20,10 +24,12 @@ import {
   listSkills,
   attachSkill,
   detachSkill,
+  listProjectNotes,
   Project,
   Skill,
+  Note,
 } from "@/lib/api";
-import { cn, formatDate, relativeTime } from "@/lib/utils";
+import { cn, formatDate, relativeTime, truncate } from "@/lib/utils";
 import { useUI } from "@/store/ui";
 
 const STATUS_META: Record<string, { label: string; color: string; icon: typeof Play }> = {
@@ -33,17 +39,29 @@ const STATUS_META: Record<string, { label: string; color: string; icon: typeof P
   archived: { label: "Archived", color: "bg-bg-elevated text-fg-muted", icon: Archive },
 };
 
+const NOTES_PREVIEW_LIMIT = 3;
+
 export function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
+  const [notesByProject, setNotesByProject] = useState<Record<string, Note[]>>({});
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState<Partial<Project> | null>(null);
   const pushToast = useUI((s) => s.pushToast);
 
   const load = async () => {
     try {
-      setProjects(await listProjects());
-      setSkills(await listSkills());
+      const [pjs, sks] = await Promise.all([listProjects(), listSkills()]);
+      setProjects(pjs);
+      setSkills(sks);
+      // Fetch notes for every project in parallel.
+      const pairs = await Promise.all(
+        pjs.map(async (p) => [p.id, await listProjectNotes(p.id)] as const)
+      );
+      const map: Record<string, Note[]> = {};
+      for (const [pid, ns] of pairs) map[pid] = ns;
+      setNotesByProject(map);
     } catch (e: any) {
       pushToast(e?.message ?? "Failed to load", "error");
     }
@@ -108,6 +126,10 @@ export function Projects() {
           {filtered.map((p) => {
             const m = STATUS_META[p.status];
             const Icon = m.icon;
+            const notes = notesByProject[p.id] ?? [];
+            const isOpen = !!expanded[p.id];
+            const visibleNotes = isOpen ? notes : notes.slice(0, NOTES_PREVIEW_LIMIT);
+            const hiddenCount = notes.length - visibleNotes.length;
             return (
               <div key={p.id} className="surface p-4 hover:border-border-strong group">
                 <div className="flex items-start gap-2 mb-2">
@@ -152,6 +174,11 @@ export function Projects() {
                   </div>
                 </div>
 
+                {/* Related notes */}
+                <ProjectNotes notes={notes} visible={visibleNotes} hiddenCount={hiddenCount}
+                  onToggle={() => setExpanded((m) => ({ ...m, [p.id]: !m[p.id] }))}
+                />
+
                 <div className="flex items-center justify-between text-[11px] text-fg-subtle pt-2 border-t border-border">
                   <div className="flex items-center gap-2">
                     <span className={cn("chip", m.color)}>
@@ -181,6 +208,80 @@ export function Projects() {
             load();
           }}
         />
+      )}
+    </div>
+  );
+}
+
+function ProjectNotes({
+  notes,
+  visible,
+  hiddenCount,
+  onToggle,
+}: {
+  notes: Note[];
+  visible: Note[];
+  hiddenCount: number;
+  onToggle: () => void;
+}) {
+  const navigate = useNavigate();
+
+  if (notes.length === 0) {
+    return (
+      <div className="mb-3 -mx-1 px-1">
+        <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-fg-subtle mb-1.5">
+          <FileText size={10} /> Notes
+        </div>
+        <div className="text-[11px] text-fg-subtle italic px-1">
+          No notes linked yet. Open a note and pick this project to link it.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-3 -mx-1 px-1">
+      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-fg-subtle mb-1.5">
+        <FileText size={10} /> Notes ({notes.length})
+      </div>
+      <ul className="space-y-1">
+        {visible.map((n) => (
+          <li key={n.id}>
+            <button
+              onClick={() => navigate(`/notes/${n.id}`)}
+              className="w-full text-left flex items-start gap-2 px-2 py-1.5 rounded hover:bg-bg-elevated group/note"
+              title={n.title || "Untitled"}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-accent/60 mt-1.5 shrink-0" />
+              <span className="flex-1 min-w-0">
+                <span className="block text-xs font-medium truncate group-hover/note:text-accent">
+                  {n.title || "Untitled"}
+                </span>
+                {n.content && (
+                  <span className="block text-[11px] text-fg-muted line-clamp-1">
+                    {truncate(n.content.replace(/^#+ /gm, "").replace(/[*`_]/g, ""), 80)}
+                  </span>
+                )}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {hiddenCount > 0 && (
+        <button
+          onClick={onToggle}
+          className="mt-1 text-[11px] text-fg-muted hover:text-accent flex items-center gap-1 px-2"
+        >
+          <ChevronDown size={11} /> Show {hiddenCount} more
+        </button>
+      )}
+      {hiddenCount < 0 && (
+        <button
+          onClick={onToggle}
+          className="mt-1 text-[11px] text-fg-muted hover:text-accent flex items-center gap-1 px-2"
+        >
+          <ChevronUp size={11} /> Show less
+        </button>
       )}
     </div>
   );
@@ -268,38 +369,56 @@ function ProjectEditor({
           {isNew ? "New project" : "Edit project"}
         </div>
         <div className="p-5 space-y-3 overflow-y-auto">
-          <input value={name} onChange={(e) => setName(e.target.value)} autoFocus dir="auto" placeholder="Project name" className="input bidi-plaintext" />
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            dir="auto"
-            placeholder="What's the goal?"
-            className="input min-h-[80px] resize-y bidi-plaintext"
-          />
-          <div className="grid grid-cols-3 gap-3">
-            <select value={status} onChange={(e) => setStatus(e.target.value as Project["status"])} className="input">
-              <option value="active">active</option>
-              <option value="paused">paused</option>
-              <option value="completed">completed</option>
-              <option value="archived">archived</option>
-            </select>
-            <input
-              type="number"
-              min={0}
-              max={100}
-              value={progress}
-              onChange={(e) => setProgress(Math.max(0, Math.min(100, Number(e.target.value))))}
-              placeholder="Progress %"
-              className="input"
-            />
-            <input
-              type="date"
-              value={targetDate}
-              onChange={(e) => setTargetDate(e.target.value)}
-              className="input"
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-fg-muted mb-1 block">Name</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} autoFocus dir="auto" placeholder="Project name" className="input bidi-plaintext" />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-fg-muted mb-1 block">Description</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              dir="auto"
+              placeholder="What's the goal?"
+              className="input min-h-[80px] resize-y bidi-plaintext"
             />
           </div>
-          <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="tags" className="input" />
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-fg-muted mb-1 block">Status</label>
+              <select value={status} onChange={(e) => setStatus(e.target.value as Project["status"])} className="input">
+                <option value="active">active</option>
+                <option value="paused">paused</option>
+                <option value="completed">completed</option>
+                <option value="archived">archived</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-fg-muted mb-1 block">Progress %</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={progress}
+                onChange={(e) => setProgress(Math.max(0, Math.min(100, Number(e.target.value))))}
+                placeholder="0–100"
+                className="input"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-fg-muted mb-1 block">Target date</label>
+              <input
+                type="date"
+                value={targetDate}
+                onChange={(e) => setTargetDate(e.target.value)}
+                className="input"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-fg-muted mb-1 block">Tags</label>
+            <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="comma, separated" className="input" />
+          </div>
           <div>
             <div className="text-xs text-fg-muted uppercase tracking-wider mb-2 flex items-center gap-1">
               <Sparkles size={11} /> Linked skills

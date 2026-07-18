@@ -28,7 +28,9 @@ export function Toasts() {
             )}
           >
             <Icon size={16} />
-            <span className="text-sm flex-1">{t.message}</span>
+            <span className="text-sm flex-1" dir="auto">
+              {t.message}
+            </span>
             <button onClick={() => dismiss(t.id)} className="opacity-60 hover:opacity-100">
               <X size={14} />
             </button>

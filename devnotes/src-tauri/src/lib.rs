@@ -5,8 +5,10 @@ use serde::{Deserialize, Serialize};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::fs;
 use tauri::{Manager, Emitter};
-use tauri_plugin_sql::{Migration, MigrationKind};
+use tauri_plugin_sql::Migration;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
+
+use crate::commands::helpers::now;
 
 mod models;
 mod commands;
@@ -33,6 +35,12 @@ const INITIAL_SCHEMA_SQL: &str = r#"
                 );
 
                 -- Notes: free-form markdown notes
+                -- NOTE: project_id is intentionally NOT in this CREATE TABLE.
+                -- For existing DBs we add it via migration v5 (ALTER); for fresh DBs
+                -- the same migration runs after v1, so the schema is consistent
+                -- either way. Keeping it out of the inline schema avoids the
+                -- "no such column" error when INITIAL_SCHEMA_SQL re-runs on an
+                -- old DB that hasn't been migrated yet.
                 CREATE TABLE IF NOT EXISTS notes (
                     id TEXT PRIMARY KEY,
                     title TEXT NOT NULL,
@@ -66,7 +74,9 @@ const INITIAL_SCHEMA_SQL: &str = r#"
                     id TEXT PRIMARY KEY,
                     title TEXT NOT NULL,
                     url TEXT NOT NULL DEFAULT '',
-                    "type" TEXT NOT NULL DEFAULT 'article', -- article, video, course, book, podcast
+                    "type" TEXT NOT NULL DEFAULT 'website', -- video, course, book, podcast, website
+                    source_mode TEXT NOT NULL DEFAULT 'url', -- url, local
+                    local_path TEXT NOT NULL DEFAULT '',
                     status TEXT NOT NULL DEFAULT 'to_read', -- to_read, in_progress, done, archived
                     progress INTEGER NOT NULL DEFAULT 0, -- 0..100
                     description TEXT NOT NULL DEFAULT '',
@@ -145,17 +155,134 @@ const INITIAL_SCHEMA_SQL: &str = r#"
                 CREATE INDEX IF NOT EXISTS idx_daily_entries_date ON daily_entries(date DESC);
             "#;
 
-/// SQL migrations applied on first launch.
-/// The schema is intentionally relational so we can join and graph.
+// NOTE: tauri-plugin-sql's `add_migrations` only runs when the JS-side
+// `load(db_url)` API is called. This app uses its own `SqlitePool` and
+// custom invoke() commands, so plugin migrations are effectively dead
+// code. Schema changes go through the setup hook's `ensure_*` functions
+// (see below) which run on every app start. We keep an empty migrations
+// list so the plugin doesn't choke on stale data if someone later calls
+// load() from JS.
 fn migrations() -> Vec<Migration> {
-    vec![
-        Migration {
-            version: 1,
-            description: "create_initial_schema",
-            sql: INITIAL_SCHEMA_SQL,
-            kind: MigrationKind::Up,
-        },
-    ]
+    Vec::new()
+}
+
+async fn ensure_resource_columns(pool: &sqlx::SqlitePool) -> Result<(), AppError> {
+    let rows = sqlx::query("SELECT name FROM pragma_table_info('resources') WHERE name IN ('source_mode', 'local_path')")
+        .fetch_all(pool)
+        .await
+        .map_err(AppError::from)?;
+    if rows.len() < 2 {
+        for stmt in [
+            "ALTER TABLE resources ADD COLUMN source_mode TEXT NOT NULL DEFAULT 'url'",
+            "ALTER TABLE resources ADD COLUMN local_path TEXT NOT NULL DEFAULT ''",
+        ] {
+            let _ = sqlx::query(stmt).execute(pool).await;
+        }
+        let _ = sqlx::query("UPDATE resources SET \"type\" = 'website' WHERE \"type\" = 'article'")
+            .execute(pool)
+            .await;
+    }
+    Ok(())
+}
+
+/// Add the `project_id` column to `notes` if it doesn't exist, and create
+/// the index. Idempotent — safe to call on every app start. This is the
+/// real migration path for this project (the tauri-plugin-sql migrations
+/// are not run because the app uses its own SqlitePool and doesn't call
+/// the plugin's JS-side `load()` API).
+///
+/// NOTE: the legacy `notes.project_id` column is kept for backward
+/// compatibility, but new code should use the `note_projects` join table
+/// (many-to-many). The legacy column is auto-backfilled into the join
+/// table by `backfill_note_projects_from_legacy` on first run.
+async fn ensure_notes_project_column(pool: &sqlx::SqlitePool) -> Result<(), AppError> {
+    // 1. Is the column already there?
+    let row = sqlx::query("SELECT name FROM pragma_table_info('notes') WHERE name = 'project_id'")
+        .fetch_optional(pool)
+        .await
+        .map_err(AppError::from)?;
+
+    if row.is_none() {
+        // 2a. Add the column. We attach the FK inline. Some older SQLite
+        //     versions don't support REFERENCES in ALTER TABLE — fall back
+        //     to a plain column if the FK form fails.
+        let with_fk = sqlx::query(
+            "ALTER TABLE notes ADD COLUMN project_id TEXT REFERENCES projects(id) ON DELETE SET NULL",
+        )
+        .execute(pool)
+        .await;
+        if with_fk.is_err() {
+            let _ = sqlx::query("ALTER TABLE notes ADD COLUMN project_id TEXT")
+                .execute(pool)
+                .await;
+        }
+    }
+
+    // 3. Make sure the index exists (no-op if it does).
+    let _ = sqlx::query("CREATE INDEX IF NOT EXISTS idx_notes_project ON notes(project_id)")
+        .execute(pool)
+        .await;
+
+    Ok(())
+}
+
+/// Add the `color` column to `notes` (Apple-Notes-style color tag per note).
+/// Default is "default" (no color). Other valid values: "yellow", "red",
+/// "green", "blue", "purple", "gray". Idempotent.
+async fn ensure_notes_color_column(pool: &sqlx::SqlitePool) -> Result<(), AppError> {
+    let row = sqlx::query("SELECT name FROM pragma_table_info('notes') WHERE name = 'color'")
+        .fetch_optional(pool)
+        .await
+        .map_err(AppError::from)?;
+    if row.is_none() {
+        let _ = sqlx::query("ALTER TABLE notes ADD COLUMN color TEXT NOT NULL DEFAULT 'default'")
+            .execute(pool)
+            .await;
+    }
+    Ok(())
+}
+
+/// Create the `note_projects` join table for the many-to-many relation
+/// between notes and projects. Idempotent.
+async fn ensure_note_projects_table(pool: &sqlx::SqlitePool) -> Result<(), AppError> {
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS note_projects (
+            note_id TEXT NOT NULL,
+            project_id TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY(note_id, project_id),
+            FOREIGN KEY(note_id) REFERENCES notes(id) ON DELETE CASCADE,
+            FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
+        )",
+    )
+    .execute(pool)
+    .await
+    .map_err(AppError::from)?;
+
+    let _ = sqlx::query("CREATE INDEX IF NOT EXISTS idx_note_projects_note ON note_projects(note_id)")
+        .execute(pool)
+        .await;
+    let _ = sqlx::query("CREATE INDEX IF NOT EXISTS idx_note_projects_project ON note_projects(project_id)")
+        .execute(pool)
+        .await;
+
+    Ok(())
+}
+
+/// Backfill: copy any existing `notes.project_id` values into the
+/// `note_projects` join table. Idempotent — uses INSERT OR IGNORE.
+/// Safe to call on every app start.
+async fn backfill_note_projects_from_legacy(pool: &sqlx::SqlitePool) -> Result<(), AppError> {
+    let ts = now();
+    let _ = sqlx::query(
+        "INSERT OR IGNORE INTO note_projects (note_id, project_id, created_at)
+         SELECT id, project_id, ?1 FROM notes
+         WHERE project_id IS NOT NULL AND project_id != ''",
+    )
+    .bind(&ts)
+    .execute(pool)
+    .await;
+    Ok(())
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -195,6 +322,12 @@ impl From<String> for AppError {
     }
 }
 
+impl From<std::io::Error> for AppError {
+    fn from(e: std::io::Error) -> Self {
+        AppError { message: e.to_string() }
+    }
+}
+
 impl From<&str> for AppError {
     fn from(e: &str) -> Self {
         AppError { message: e.to_string() }
@@ -219,12 +352,18 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| {
                     if event.state() == ShortcutState::Pressed {
-                        if shortcut.matches(Modifiers::CONTROL | Modifiers::SHIFT, Code::Space) {
+                        // Cmd+Shift+Space on macOS, Ctrl+Shift+Space elsewhere.
+                        #[cfg(target_os = "macos")]
+                        let primary = Modifiers::META;
+                        #[cfg(not(target_os = "macos"))]
+                        let primary = Modifiers::CONTROL;
+                        if shortcut.matches(primary | Modifiers::SHIFT, Code::Space) {
                             // global quick-capture: show + focus main window
                             if let Some(win) = app.get_webview_window("main") {
                                 let _ = win.show();
@@ -254,15 +393,22 @@ pub fn run() {
                     .execute(&pool)
                     .await
                     .map_err(AppError::from)?;
+                ensure_resource_columns(&pool).await?;
+                ensure_notes_project_column(&pool).await?;
+                ensure_notes_color_column(&pool).await?;
+                ensure_note_projects_table(&pool).await?;
+                backfill_note_projects_from_legacy(&pool).await?;
                 Ok::<_, AppError>(pool)
             })?;
             app.manage(pool);
 
-            // Register the global shortcut for quick-capture
-            let shortcut = Shortcut::new(
-                Some(Modifiers::CONTROL | Modifiers::SHIFT),
-                Code::Space,
-            );
+            // Register the global shortcut for quick-capture.
+            // Cmd+Shift+Space on macOS, Ctrl+Shift+Space on Windows / Linux.
+            #[cfg(target_os = "macos")]
+            let primary = Modifiers::META;
+            #[cfg(not(target_os = "macos"))]
+            let primary = Modifiers::CONTROL;
+            let shortcut = Shortcut::new(Some(primary | Modifiers::SHIFT), Code::Space);
             if let Err(e) = app.global_shortcut().register(shortcut) {
                 eprintln!("Failed to register global shortcut: {}", e);
             }
@@ -282,6 +428,10 @@ pub fn run() {
             commands::notes::update_note,
             commands::notes::delete_note,
             commands::notes::get_note,
+            commands::notes::set_note_project,
+            commands::notes::set_note_projects,
+            commands::notes::set_note_color,
+            commands::notes::list_project_notes,
             // snippets
             commands::snippets::list_snippets,
             commands::snippets::create_snippet,
@@ -290,9 +440,11 @@ pub fn run() {
             commands::snippets::bump_usage,
             // resources
             commands::resources::list_resources,
+            commands::resources::get_resource,
             commands::resources::create_resource,
             commands::resources::update_resource,
             commands::resources::delete_resource,
+            commands::resources::stage_resource_file,
             // projects
             commands::projects::list_projects,
             commands::projects::create_project,

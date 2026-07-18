@@ -186,3 +186,162 @@
 .hljs-variable, .hljs-name { color: #fda4af; }
 .hljs-tag { color: #f472b6; }
 .hljs-symbol, .hljs-meta { color: #facc15; }
+
+/* ----------------------------------------------------------------
+   TipTap rich-text-editor styles
+   The .rich-text-editor wrapper is what we apply prose-devnotes to.
+   It shares the .prose-devnotes styles above (h1/h2/code/…) and adds
+   editor-specific behavior below.
+   ---------------------------------------------------------------- */
+.rich-text-editor {
+  /* Make the editor behave like a flowing document, not a fixed box. */
+  min-height: 60vh;
+}
+.rich-text-editor .ProseMirror {
+  outline: none;
+  min-height: 60vh;
+  /* Allow the caret and selection to position predictably inside the
+     max-w-3xl column. */
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+.rich-text-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #6b7280; /* text-fg-subtle */
+  pointer-events: none;
+  height: 0;
+}
+
+/* Apple-Notes-style highlight (TipTap Highlight extension). */
+.rich-text-editor mark,
+.prose-devnotes mark {
+  background: rgba(250, 204, 21, 0.25); /* amber-400/25 */
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 3px;
+}
+
+/* Strikethrough — just a soft color to make it stand out. */
+.rich-text-editor s,
+.prose-devnotes s {
+  color: #9ca3af;
+  text-decoration: line-through;
+  text-decoration-color: rgba(248, 113, 113, 0.6);
+}
+
+/* TipTap task list — Apple-Notes style checkboxes that you can tick
+   directly in the editor. The label uses our accent for the check. */
+.rich-text-editor ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0.25rem;
+  margin: 0.75rem 0;
+}
+.rich-text-editor ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0.25rem 0;
+}
+.rich-text-editor ul[data-type="taskList"] li > label {
+  margin-top: 0.2rem;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+}
+.rich-text-editor ul[data-type="taskList"] li > div {
+  flex: 1;
+  min-width: 0;
+}
+.rich-text-editor ul[data-type="taskList"] input[type="checkbox"] {
+  accent-color: #22d3ee;
+  cursor: pointer;
+  width: 1rem;
+  height: 1rem;
+}
+.rich-text-editor ul[data-type="taskList"] li[data-checked="true"] > div {
+  color: #6b7280;
+  text-decoration: line-through;
+}
+
+/* TipTap tables — look like the .prose-devnotes table but with a
+   resize handle and selected-cell highlight. */
+.rich-text-editor table {
+  border-collapse: collapse;
+  margin: 1rem 0;
+  width: 100%;
+  table-layout: fixed;
+  overflow: hidden;
+}
+.rich-text-editor th,
+.rich-text-editor td {
+  border: 1px solid #1f2937;
+  padding: 0.5rem 0.75rem;
+  vertical-align: top;
+  position: relative;
+}
+.rich-text-editor th {
+  background: rgba(34, 211, 238, 0.05);
+  font-weight: 600;
+  text-align: start;
+}
+.rich-text-editor .selectedCell:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(34, 211, 238, 0.12);
+  pointer-events: none;
+}
+.rich-text-editor .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: -2px;
+  width: 4px;
+  background: #22d3ee;
+  pointer-events: none;
+}
+
+/* Code block (lowlight) — fenced code in the editor. */
+.rich-text-editor pre {
+  background: #0b1220;
+  border: 1px solid #1f2937;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin: 1rem 0;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.rich-text-editor pre code {
+  background: transparent !important;
+  color: #e5e7eb;
+  padding: 0;
+  font-size: inherit;
+}
+
+/* Drop cursor for drag-and-drop. */
+.rich-text-editor .ProseMirror-dropcursor {
+  background: #22d3ee;
+}
+
+/* Gapcursor (cursor in places that don't normally allow it, like
+   between blocks). */
+.rich-text-editor .ProseMirror-gapcursor::after {
+  border-top: 1px solid #22d3ee;
+}
+
+/* Selection in the editor — match the global selection style. */
+.rich-text-editor .ProseMirror ::selection {
+  background: rgba(34, 211, 238, 0.3);
+}
+
+/* Tippy / BubbleMenu shadow fix — the floating toolbar lives in a
+   Tippy.js portal but we want to keep the look consistent. */
+.tippy-box[data-theme~="light"] {
+  background: transparent;
+}
+.tippy-box .tippy-content {
+  padding: 0;
+}

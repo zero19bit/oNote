@@ -9,7 +9,7 @@ import {
   createSnippet,
   InboxItem,
 } from "@/lib/api";
-import { cn, relativeTime, todayString } from "@/lib/utils";
+import { cn, relativeTime, todayString, shortcutKeys } from "@/lib/utils";
 import { useUI } from "@/store/ui";
 import { useNavigate } from "react-router-dom";
 
@@ -18,6 +18,8 @@ export function Inbox() {
   const [draft, setDraft] = useState("");
   const [showProcessed, setShowProcessed] = useState(false);
   const pushToast = useUI((s) => s.pushToast);
+  const platform = useUI((s) => s.platform);
+  const captureKeys = shortcutKeys(platform, "mod", "shift", "a");
   const navigate = useNavigate();
 
   const load = async () => {
@@ -129,8 +131,12 @@ export function Inbox() {
         <div className="surface p-12 text-center">
           <InboxIcon size={32} className="text-fg-muted mx-auto mb-3" />
           <h3 className="text-lg font-semibold mb-1">Inbox empty</h3>
-          <p className="text-sm text-fg-muted">
-            Use <span className="kbd">Ctrl+Shift+A</span> anywhere, or type above to capture.
+          <p className="text-sm text-fg-muted flex items-center gap-1 justify-center flex-wrap">
+            Use
+            {captureKeys.map((k, i) => (
+              <span key={i} className="kbd">{k}</span>
+            ))}
+            anywhere, or type above to capture.
           </p>
         </div>
       ) : (

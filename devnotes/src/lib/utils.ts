@@ -80,3 +80,36 @@ export const levelColor = (lvl: number): string =>
   ["#ef4444", "#f97316", "#eab308", "#84cc16", "#22c55e"][
     Math.max(0, Math.min(4, lvl - 1))
   ];
+
+/** Platform-aware key labels. Use these everywhere a shortcut is shown so the
+ *  displayed text matches what the user actually presses. */
+export const isMacPlatform = (p: "mac" | "windows" | "linux") => p === "mac";
+
+/** Returns "⌘" on Mac, "Ctrl" elsewhere. */
+export const cmdKey = (p: "mac" | "windows" | "linux") => (isMacPlatform(p) ? "⌘" : "Ctrl");
+
+/** Returns "⌥" on Mac, "Alt" elsewhere. */
+export const optKey = (p: "mac" | "windows" | "linux") => (isMacPlatform(p) ? "⌥" : "Alt");
+
+/** Returns "⇧" on Mac, "Shift" elsewhere. */
+export const shiftKey = (p: "mac" | "windows" | "linux") => (isMacPlatform(p) ? "⇧" : "Shift");
+
+/** Builds a sequence of kbd labels for a chord. Pass the keys in reading order
+ *  and the function picks the right glyph per platform.
+ *  Example: `shortcutKeys("mac", "mod", "shift", "a")` → ["⌘", "⇧", "A"] */
+export const shortcutKeys = (
+  p: "mac" | "windows" | "linux",
+  ...parts: ("mod" | "shift" | "alt" | string)[]
+): string[] => {
+  return parts.map((p2) => {
+    const k = p2.toLowerCase();
+    if (k === "mod") return cmdKey(p);
+    if (k === "shift") return shiftKey(p);
+    if (k === "alt") return optKey(p);
+    // Letters get uppercased on Mac, "Shift+A" style elsewhere.
+    if (k.length === 1 && /[a-z]/.test(k)) {
+      return isMacPlatform(p) ? k.toUpperCase() : k.toUpperCase();
+    }
+    return p2;
+  });
+};
