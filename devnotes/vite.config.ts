@@ -1,5 +1,5 @@
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import react from "@vitejs/plugin-react-swc";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -11,48 +11,13 @@ export default defineConfig(() => ({
   resolve: {
     alias: [
       { find: "@", replacement: path.resolve(__dirname, "./src") },
-      // lucide-react@1.25.0 ships icons as `export { default as Foo } from '...'`
-      // in its main ESM entry. Rollup's tree-shaker drops those re-exports
-      // because the package is marked `sideEffects: false`, which breaks
-      // production builds for every component that imports named icons.
-      // We only alias the bare specifier `lucide-react` (regex `$`) so the
-      // wrapper file's own deep imports (e.g. `lucide-react/dist/...`)
-      // are unaffected by this rule.
+      // lucide-react@1.25.0's main entry drops named re-exports under
+      // Rollup tree-shaking, so we route the bare specifier to a
+      // curated re-export file. The wrapper's own deep imports
+      // (e.g. `lucide-react/dist/...`) are unaffected by this rule.
       {
         find: /^lucide-react$/,
         replacement: path.resolve(__dirname, "./src/lib/icons.tsx"),
-      },
-      // The `zustand` main entry re-exports its public API via
-      // `export * from 'zustand/react'` with `sideEffects: false`,
-      // which Rollup drops during tree-shaking. The deep ESM file is
-      // the real module and survives bundling. We keep the
-      // bare-specifier import for the rest of the codebase (only
-      // src/store/ui.ts needs it) and route the resolution here.
-      {
-        find: /^zustand$/,
-        replacement: path.resolve(__dirname, "./src/lib/store-shim.ts"),
-      },
-      // Note: @floating-ui/dom was previously aliased to
-      // src/lib/floating-ui-shim.ts. The shim caused
-      // `const X = X` self-references in the bundle (TDZ
-      // errors at runtime). The real package works fine with
-      // Vite's default tree-shaking, so we removed the alias
-      // and let bare-specifier imports go to the real package.
-      {
-        find: /^fast-equals$/,
-        replacement: path.resolve(__dirname, "./src/lib/fast-equals-shim.ts"),
-      },
-      {
-        find: /^linkifyjs$/,
-        replacement: path.resolve(__dirname, "./src/lib/linkifyjs-shim.ts"),
-      },
-      {
-        find: /^dequal$/,
-        replacement: path.resolve(__dirname, "./src/lib/dequal-shim.ts"),
-      },
-      {
-        find: /^pdfjs-dist$/,
-        replacement: path.resolve(__dirname, "./src/lib/pdfjs-shim.ts"),
       },
     ],
     // Ensure a single, deduped pdfjs-dist is used across react-pdf and our worker
@@ -70,9 +35,6 @@ export default defineConfig(() => ({
     force: true,
   },
   envPrefix: ["VITE_", "TAURI_ENV_*"],
-  // Make sure the pdf.js worker is treated as a static asset and gets a
-  // stable URL in both dev and production builds.
-  assetsInclude: ["**/*.mjs"],
   worker: {
     format: "es" as const,
   },
@@ -83,10 +45,10 @@ export default defineConfig(() => ({
       "react-pdf",
       "pdfjs-dist",
       "pdfjs-dist/build/pdf.worker.min.mjs",
-      "zustand",
       "@tiptap/extension-bubble-menu",
+      "@floating-ui/dom",
     ],
-    exclude: ["@tauri-apps/api", "@floating-ui/dom"],
+    exclude: ["@tauri-apps/api"],
   },
   build: {
     target: "es2021",

@@ -1,9 +1,5 @@
 // Global Zustand store for UI state (not data — data is per-page).
-// We import `create` via a local shim wrapper that avoids the
-// zustand main entry's `export * from "zustand/react"` re-exports
-// (which Rollup drops under `sideEffects: false`). The shim
-// implements the subset of Zustand we use; semantics are identical.
-import { create } from "@/lib/store-shim";
+import { create } from "zustand";
 import { listen } from "@tauri-apps/api/event";
 import pkg from "../../package.json";
 
