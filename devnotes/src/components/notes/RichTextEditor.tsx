@@ -162,8 +162,8 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
     return (
       <div
         className={cn(
-          "rich-text-editor relative h-full",
-          "prose-devnotes"
+          "rich-text-editor relative h-full prose-devnotes",
+          className
         )}
       >
         <EditorContent editor={editor} className="h-full" />

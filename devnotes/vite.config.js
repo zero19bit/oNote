@@ -9,10 +9,10 @@ export default defineConfig(function () { return ({
     resolve: {
         alias: [
             { find: "@", replacement: path.resolve(__dirname, "./src") },
-            // lucide-react@1.25.0's main entry drops named re-exports
-            // under Rollup tree-shaking, so route the bare specifier
-            // to a curated re-export file. Deep imports of
-            // `lucide-react/dist/...` inside the wrapper are unaffected.
+            // lucide-react@1.25.0's main entry drops named re-exports under
+            // Rollup tree-shaking, so we route the bare specifier to a
+            // curated re-export file. The wrapper's own deep imports
+            // (e.g. `lucide-react/dist/...`) are unaffected by this rule.
             {
                 find: /^lucide-react$/,
                 replacement: path.resolve(__dirname, "./src/lib/icons.tsx"),
@@ -43,7 +43,6 @@ export default defineConfig(function () { return ({
             "react-pdf",
             "pdfjs-dist",
             "pdfjs-dist/build/pdf.worker.min.mjs",
-            "zustand",
             "@tiptap/extension-bubble-menu",
             "@floating-ui/dom",
         ],

@@ -153,6 +153,51 @@
   @apply text-accent cursor-pointer hover:underline;
 }
 
+/* Images inside Markdown preview. */
+.prose-devnotes img.prose-img,
+.prose-devnotes .prose-img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1rem 0;
+  border-radius: 0.5rem;
+  border: 1px solid #1f2937;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* GFM task list (preview only — editor uses its own
+   `.rich-text-editor ul[data-type="taskList"]` styles). */
+.prose-devnotes ul:has(li.task-list-item) {
+  list-style: none;
+  padding-left: 0.25rem;
+}
+.prose-devnotes li.task-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0.25rem 0;
+}
+.prose-devnotes li.task-list-item .task-list-checkbox-wrap {
+  margin-top: 0.2rem;
+  display: inline-flex;
+  align-items: center;
+  user-select: none;
+}
+.prose-devnotes li.task-list-item input.task-list-checkbox {
+  accent-color: #22d3ee;
+  cursor: default;
+  width: 1rem;
+  height: 1rem;
+}
+.prose-devnotes li.task-list-item .task-list-content {
+  flex: 1;
+  min-width: 0;
+}
+.prose-devnotes li.task-list-item[data-checked="true"] .task-list-content {
+  color: #6b7280;
+  text-decoration: line-through;
+}
+
 /* Cloze (==highlight==) styling for recall mode */
 .cloze-hidden {
   background: #2d3a4f;

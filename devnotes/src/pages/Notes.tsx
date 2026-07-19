@@ -48,13 +48,21 @@ export function Notes() {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
     const handler = async () => {
-      const n = await createNote({ title: "Untitled", content: "" });
-      navigate(`/notes/${n.id}`);
+      try {
+        const n = await createNote({ title: "Untitled", content: "" });
+        if (mounted) navigate(`/notes/${n.id}`);
+      } catch (e: any) {
+        if (mounted) pushToast(e?.message ?? "Failed to create note", "error");
+      }
     };
     window.addEventListener("notes:new", handler);
-    return () => window.removeEventListener("notes:new", handler);
-  }, [navigate]);
+    return () => {
+      mounted = false;
+      window.removeEventListener("notes:new", handler);
+    };
+  }, [navigate, pushToast]);
 
   const allTags = useMemo(() => {
     const t = new Set<string>();
@@ -97,18 +105,43 @@ export function Notes() {
   }, [notes, q, tag, projectFilter, showArchived]);
 
   const togglePin = async (n: Note) => {
-    await updateNote(n.id, { ...n, is_pinned: !n.is_pinned } as any);
-    load();
+    try {
+      await updateNote(n.id, { ...n, is_pinned: !n.is_pinned } as any);
+      load();
+    } catch (e: any) {
+      pushToast(e?.message ?? "Failed to update pin", "error");
+    }
   };
   const toggleArchive = async (n: Note) => {
-    await updateNote(n.id, { ...n, is_archived: !n.is_archived } as any);
-    load();
+    try {
+      await updateNote(n.id, { ...n, is_archived: !n.is_archived } as any);
+      load();
+    } catch (e: any) {
+      pushToast(e?.message ?? "Failed to update archive", "error");
+    }
   };
   const remove = async (n: Note) => {
     if (!confirm(`Delete "${n.title}"?`)) return;
-    await deleteNote(n.id);
-    pushToast("Deleted", "success");
-    load();
+    try {
+      await deleteNote(n.id);
+      pushToast("Deleted", "success");
+      load();
+    } catch (e: any) {
+      pushToast(e?.message ?? "Failed to delete", "error");
+    }
+  };
+
+  /** Create a fresh empty note and jump into the editor. Used by the
+   *  toolbar button, the empty-state CTA, and the `notes:new` global
+   *  event. Wrapped so all three call-sites surface failures the
+   *  same way instead of silently failing. */
+  const createAndOpen = async () => {
+    try {
+      const n = await createNote({ title: "Untitled", content: "" });
+      navigate(`/notes/${n.id}`);
+    } catch (e: any) {
+      pushToast(e?.message ?? "Failed to create note", "error");
+    }
   };
 
   /** Get the bg class for a note based on its color tag. */
@@ -129,10 +162,7 @@ export function Notes() {
           />
         </div>
         <button
-          onClick={async () => {
-            const n = await createNote({ title: "Untitled", content: "" });
-            navigate(`/notes/${n.id}`);
-          }}
+          onClick={createAndOpen}
           className="btn-primary"
         >
           <Plus size={14} /> New note
@@ -212,10 +242,7 @@ export function Notes() {
               : "Try a different search or tag."}
           </p>
           <button
-            onClick={async () => {
-              const n = await createNote({ title: "Untitled", content: "" });
-              navigate(`/notes/${n.id}`);
-            }}
+            onClick={createAndOpen}
             className="btn-primary"
           >
             <Plus size={14} /> Create your first note

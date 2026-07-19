@@ -204,7 +204,6 @@ export function ProjectMultiSelect({
             <span
               key={p.id}
               className="chip"
-              style={{ borderColor: p.id ? undefined : undefined }}
             >
               <Target size={10} className="text-accent" />
               {p.name}

@@ -77,8 +77,13 @@ export function NoteContextMenu({ editor, portal = true }: NoteContextMenuProps)
   const handleContextMenu = useCallback(
     (e: MouseEvent) => {
       if (!editor) return;
-      e.preventDefault();
       const sel = editor.state.selection;
+      // Only show our custom context menu when the user has actually
+      // selected some text. Right-clicking on an empty caret should
+      // let the browser's default menu through so spellcheck / OS
+      // actions still work.
+      if (sel.empty) return;
+      e.preventDefault();
       setMenu({
         x: e.clientX,
         y: e.clientY,
