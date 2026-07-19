@@ -466,6 +466,7 @@ pub fn run() {
             commands::review::get_due_for_review,
             commands::review::submit_review,
             commands::review::stats,
+            commands::review::get_skill_linked_items,
             // achievements
             commands::achievements::list_achievements,
             commands::achievements::unlock_achievement,

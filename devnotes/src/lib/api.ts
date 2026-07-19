@@ -271,6 +271,44 @@ export const submitReview = (targetType: string, targetId: string, quality: numb
   });
 export const getStats = () => call<ReviewStats>("stats");
 
+// ── Skill-linked review picker ────────────────────────────────────────────
+// A separate, simpler flow from the SM-2 spaced-repetition queue above.
+// Pick a skill → see every note / resource linked to it (with last-review
+// date + total review count) → tick the ones you want to walk through →
+// hit Next. Used by the new Review page (src/pages/Review.tsx).
+
+export interface LinkedItem {
+  /** "note" or "resource" */
+  kind: "note" | "resource";
+  id: string;
+  title: string;
+  /** Short preview for cards. For notes: first 200 chars of content. For
+   *  resources: file name (local) or URL (web). */
+  preview: string;
+  /** For resources: URL or local path. For notes: empty. */
+  href: string;
+  /** For resources: "video" / "book" / "course" / "podcast" / "website". For
+   *  notes: empty. */
+  sub_kind: string;
+  /** For resources: "to_read" / "in_progress" / "done" / "archived". For
+   *  notes: empty. */
+  status: string;
+  tags: string[];
+  /** ISO timestamp of most recent review_log entry, or null if never
+   *  reviewed. */
+  last_reviewed_at: string | null;
+  /** Total number of review_log entries. 0 = never reviewed. */
+  review_count: number;
+}
+
+export interface LinkedItemsResponse {
+  notes: LinkedItem[];
+  resources: LinkedItem[];
+}
+
+export const getSkillLinkedItems = (skillId: string) =>
+  call<LinkedItemsResponse>("get_skill_linked_items", { skillId });
+
 // Achievements
 export const listAchievements = () => call<Achievement[]>("list_achievements");
 export const unlockAchievement = (code: string, title: string, description: string) =>
