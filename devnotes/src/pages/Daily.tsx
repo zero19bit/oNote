@@ -7,7 +7,7 @@ import {
   DailyEntry,
 } from "@/lib/api";
 import { useUI } from "@/store/ui";
-import { cn, todayString } from "@/lib/utils";
+import { cn, todayString, dateStatus, dateStatusClasses } from "@/lib/utils";
 
 const TEMPLATES: Record<string, string> = {
   journal: `## What happened today\n\n## What I learned\n- \n\n## What I'm grateful for\n- \n\n## Tomorrow's focus\n- \n`,
@@ -100,30 +100,47 @@ export function Daily() {
             <div className="text-[10px] text-fg-muted uppercase tracking-wider mb-1 px-1">
               {new Date(month + "-01").toLocaleDateString(undefined, { month: "long", year: "numeric" })}
             </div>
-            {list.map((e) => (
-              <button
-                key={e.id}
-                onClick={() => setActiveDate(e.date)}
-                className={cn(
-                  "w-full text-left px-2 py-1.5 rounded-md text-sm flex items-center gap-2",
-                  activeDate === e.date
-                    ? "bg-accent/15 text-accent"
-                    : "hover:bg-bg-elevated text-fg-muted"
-                )}
-              >
-                <div className="w-7 text-center">
-                  <div className="text-xs">{new Date(e.date).getDate()}</div>
-                  <div className="text-[9px] uppercase">
-                    {new Date(e.date).toLocaleDateString(undefined, { weekday: "short" })}
+            {list.map((e) => {
+              const status = dateStatus(e.date);
+              const sc = dateStatusClasses(status);
+              const isActive = activeDate === e.date;
+              return (
+                <button
+                  key={e.id}
+                  onClick={() => setActiveDate(e.date)}
+                  className={cn(
+                    "relative w-full text-left pl-3 pr-2 py-1.5 rounded-md text-sm flex items-center gap-2 border-l-2",
+                    sc.border,
+                    isActive
+                      ? "bg-accent/15 text-accent"
+                      : "hover:bg-bg-elevated text-fg-muted"
+                  )}
+                  title={
+                    status === "past"
+                      ? "Past"
+                      : status === "today"
+                      ? "Today"
+                      : "Upcoming"
+                  }
+                >
+                  <div className={cn("w-7 text-center", isActive ? "" : sc.text)}>
+                    <div className="text-xs font-semibold">
+                      {new Date(e.date).getDate()}
+                    </div>
+                    <div className="text-[9px] uppercase opacity-80">
+                      {new Date(e.date).toLocaleDateString(undefined, { weekday: "short" })}
+                    </div>
                   </div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="truncate">{e.kind}</div>
-                  <div className="text-[10px] text-fg-subtle truncate">{e.content.slice(0, 30)}</div>
-                </div>
-                <div className="text-xs">{"😞😐🙂😊😄"[e.mood - 1]}</div>
-              </button>
-            ))}
+                  <div className="flex-1 min-w-0">
+                    <div className="truncate">{e.kind}</div>
+                    <div className="text-[10px] text-fg-subtle truncate">
+                      {e.content.slice(0, 30)}
+                    </div>
+                  </div>
+                  <div className="text-xs">{"😞😐🙂😊😄"[e.mood - 1]}</div>
+                </button>
+              );
+            })}
           </div>
         ))}
       </aside>

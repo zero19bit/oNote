@@ -45,6 +45,51 @@ export const todayString = (): string => {
   return `${y}-${m}-${day}`;
 };
 
+/** Classify a YYYY-MM-DD date as past / today / future, in local time. */
+export type DateStatus = "past" | "today" | "future";
+
+export const dateStatus = (iso: string | null | undefined): DateStatus => {
+  if (!iso) return "today";
+  const today = todayString();
+  if (iso < today) return "past";
+  if (iso > today) return "future";
+  return "today";
+};
+
+/** Tailwind classes for date status. The "left" value is meant to be applied
+ *  as a left border (border-l-2) on the entry button; the "text" value tints
+ *  the day number. Used by the Daily page sidebar. */
+export const dateStatusClasses = (status: DateStatus): {
+  border: string;
+  text: string;
+  dot: string;
+} => {
+  switch (status) {
+    case "past":
+      // red — overdue / missed
+      return {
+        border: "border-l-red-500/70",
+        text: "text-red-400",
+        dot: "bg-red-500",
+      };
+    case "future":
+      // green — planned / upcoming
+      return {
+        border: "border-l-emerald-500/70",
+        text: "text-emerald-400",
+        dot: "bg-emerald-500",
+      };
+    case "today":
+    default:
+      // blue — current
+      return {
+        border: "border-l-blue-500",
+        text: "text-blue-400",
+        dot: "bg-blue-500",
+      };
+  }
+};
+
 export const uuid = (): string => {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();

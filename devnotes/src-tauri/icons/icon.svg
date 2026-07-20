@@ -1,6 +1,32 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <rect width="64" height="64" rx="14" fill="#0b0f17"/>
-  <path d="M14 18 L26 46 L32 32 L38 46 L50 18" stroke="#22d3ee" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="50" cy="18" r="3" fill="#22d3ee"/>
-  <circle cx="14" cy="18" r="3" fill="#a78bfa"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#34d399"/>
+    </linearGradient>
+    <linearGradient id="gV" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#34d399"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Outer ring (broken into 4 arcs around the pen, leaving vertical gaps) -->
+  <g stroke="url(#g)" stroke-width="14" stroke-linecap="round" fill="none">
+    <path d="M 30 92  A 100 100 0 0 1 118 30"/>
+    <path d="M 138 30  A 100 100 0 0 1 226 92"/>
+    <path d="M 30 164 A 100 100 0 0 0 118 226"/>
+    <path d="M 138 226 A 100 100 0 0 0 226 164"/>
+  </g>
+
+  <!-- Central pen (vertical line + tip) -->
+  <line x1="128" y1="40" x2="128" y2="200" stroke="url(#gV)" stroke-width="14" stroke-linecap="round"/>
+  <polygon points="118,196 128,228 138,196" fill="url(#gV)"/>
+
+  <!-- Left: { -->
+  <path d="M 80 95 C 60 95 60 112 72 120 C 78 124 78 132 72 136 C 60 144 60 161 80 161"
+        stroke="url(#g)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- Right: ] -->
+  <path d="M 176 95 L 176 161 L 200 161"
+        stroke="url(#g)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
 </svg>

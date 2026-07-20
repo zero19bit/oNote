@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Apple, Monitor, Terminal, Keyboard } from "lucide-react";
 import { useUI, type Platform } from "@/store/ui";
 import { cn } from "@/lib/utils";
+import { readPlatform, writePlatform } from "@/lib/platformStore";
 
 const PLATFORM_META: Record<Platform, { label: string; sub: string; Icon: typeof Apple; sample: string[] }> = {
   mac:     { label: "macOS",     sub: "⌘  to open commands",  Icon: Apple,    sample: ["⌘", "K"] },
@@ -13,17 +14,55 @@ const PLATFORM_META: Record<Platform, { label: string; sub: string; Icon: typeof
  * One-shot first-run prompt that asks the user which OS they're on so we
  * can render shortcuts in the right style (⌘ on Mac, Ctrl elsewhere).
  * The user can change their answer any time from Settings.
+ *
+ * Persistence: the platform is read from / written to `tauri-plugin-store`,
+ * a JSON file in the app's per-user data dir. We deliberately avoid
+ * localStorage because WebView2 in dev mode can drop it between Tauri
+ * restarts.
  */
 export function PlatformPicker() {
   const platform = useUI((s) => s.platform);
-  const picked = useUI((s) => s.platformPicked);
+  const storePicked = useUI((s) => s.platformPicked);
   const setPlatform = useUI((s) => s.setPlatform);
   const pushToast = useUI((s) => s.pushToast);
+
+  // `null`  = still loading from the persistent store
+  // `true`  = the user has already picked (hide the picker)
+  // `false` = no pick yet (show the picker)
+  const [hasPicked, setHasPicked] = useState<boolean | null>(null);
+
+  // Read on mount from the persistent store. We do this even though the
+  // Zustand store also reads localStorage at init — the store's value
+  // could be stale (e.g. user changed platform via Settings in a
+  // previous session) and only the plugin-store is the source of truth.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const stored = await readPlatform();
+      if (!alive) return;
+      if (stored) {
+        // Sync the in-memory Zustand state so the rest of the app sees it.
+        if (!storePicked || useUI.getState().platform !== stored) {
+          setPlatform(stored);
+        }
+        setHasPicked(true);
+      } else {
+        setHasPicked(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+    // We intentionally don't depend on storePicked / platform here —
+    // re-running this every time they change would loop with the
+    // setHasPicked → setPlatform cycle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Esc dismisses the picker without saving (treats it as a no-op;
   // next launch will ask again).
   useEffect(() => {
-    if (picked) return;
+    if (hasPicked !== false) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
@@ -32,12 +71,14 @@ export function PlatformPicker() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [picked, pushToast]);
+  }, [hasPicked, pushToast]);
 
-  if (picked) return null;
+  if (hasPicked !== false) return null;
 
   const choose = (p: Platform) => {
-    setPlatform(p);
+    setPlatform(p);            // updates Zustand + localStorage
+    setHasPicked(true);
+    writePlatform(p);          // primary: persistent plugin-store file
     pushToast(`Shortcuts set for ${PLATFORM_META[p].label}`, "success");
   };
 

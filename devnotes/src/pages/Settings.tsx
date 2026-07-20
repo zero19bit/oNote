@@ -13,6 +13,7 @@ import {
 import { useUI, type Platform } from "@/store/ui";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
+import { writePlatform } from "@/lib/platformStore";
 import { cn, shortcutKeys } from "@/lib/utils";
 
 export function Settings() {
@@ -180,6 +181,7 @@ export function Settings() {
               key={p}
               onClick={() => {
                 setPlatform(p);
+                writePlatform(p); // persist to plugin-store so the picker stays hidden next launch
                 pushToast(`Shortcuts set for ${label}`, "success");
               }}
               className={cn(

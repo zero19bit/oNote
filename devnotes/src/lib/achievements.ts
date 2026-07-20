@@ -1,6 +1,6 @@
 // Achievement system — light gamification that fires on stats changes.
 import { useUI } from "@/store/ui";
-import { getStats, unlockAchievement } from "@/lib/api";
+import { getStats, listAchievements, unlockAchievement } from "@/lib/api";
 
 interface Achievement {
   code: string;
@@ -22,8 +22,23 @@ const ACHIEVEMENTS: Achievement[] = [
   { code: "streak_30", title: "Iron Memory", description: "30-day review streak", check: (s) => s.streak_days >= 30 },
 ];
 
+// Module-level state. Lives for the lifetime of the JS runtime — reset on
+// every app launch, which is fine because we re-seed it from the DB below.
 const unlockedCache = new Set<string>();
+let initialized = false;
 let timer: number | null = null;
+
+/** Seed the cache from whatever's already in the DB so we don't re-fire
+ *  toasts for achievements the user earned in a previous session. */
+async function loadUnlockedFromDb(): Promise<void> {
+  try {
+    const existing = await listAchievements();
+    for (const a of existing) unlockedCache.add(a.code);
+  } catch {
+    // If the DB read fails, just start with an empty cache; we'll
+    // re-attempt on the next `achievement:recheck` event.
+  }
+}
 
 export function initAchievementWatchers() {
   const pushToast = useUI.getState().pushToast;
@@ -41,14 +56,26 @@ export function initAchievementWatchers() {
               new CustomEvent("achievement:unlocked", { detail: a })
             );
             pushToast(`🏆 ${a.title}`, "success");
-          } catch {}
+          } catch {
+            // If the DB write failed, drop the code from the cache so we
+            // try again on the next check.
+            unlockedCache.delete(a.code);
+          }
         }
       }
     } catch {}
   };
 
-  // Initial check + every 30s
-  check();
+  // Seed once, then start the polling loop. We do this lazily so that the
+  // very first `check()` after init sees the up-to-date cache and doesn't
+  // re-fire for already-earned achievements.
+  if (!initialized) {
+    initialized = true;
+    loadUnlockedFromDb().then(check);
+  } else {
+    check();
+  }
+
   if (timer) clearInterval(timer);
   timer = window.setInterval(check, 30_000);
 
