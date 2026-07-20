@@ -19,6 +19,8 @@ import { getStats } from "@/lib/api";
 
 interface NavItem {
   to: string;
+  /** Matches the `data-tour` attribute used by the onboarding tour. */
+  tourId: string;
   label: string;
   icon: typeof LayoutDashboard;
   badge?: () => number | null;
@@ -61,21 +63,22 @@ export function Sidebar() {
   }, []);
 
   const items: NavItem[] = [
-    { to: "/", label: "Dashboard", icon: LayoutDashboard },
-    { to: "/skills", label: "Skills", icon: Sparkles },
-    { to: "/notes", label: "Notes", icon: StickyNote },
-    { to: "/snippets", label: "Snippets", icon: Code2 },
-    { to: "/review", label: "Review", icon: BrainCircuit, badge: () => due },
-    { to: "/resources", label: "Resources", icon: BookOpen },
-    { to: "/projects", label: "Projects", icon: Target },
-    { to: "/daily", label: "Daily", icon: CalendarDays },
+    { to: "/",         tourId: "sidebar-item-dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { to: "/skills",   tourId: "sidebar-item-skills",    label: "Skills",    icon: Sparkles },
+    { to: "/notes",    tourId: "sidebar-item-notes",     label: "Notes",     icon: StickyNote },
+    { to: "/snippets", tourId: "sidebar-item-snippets",  label: "Snippets",  icon: Code2 },
+    { to: "/review",   tourId: "sidebar-item-review",    label: "Review",    icon: BrainCircuit, badge: () => due },
+    { to: "/resources", tourId: "sidebar-item-resources", label: "Resources", icon: BookOpen },
+    { to: "/projects", tourId: "sidebar-item-projects",  label: "Projects",  icon: Target },
+    { to: "/daily",    tourId: "sidebar-item-daily",     label: "Daily",     icon: CalendarDays },
     {
       to: "/inbox",
+      tourId: "sidebar-item-inbox",
       label: "Inbox",
       icon: InboxIcon,
       badge: () => inboxCount,
     },
-    { to: "/graph", label: "Graph", icon: Share2 },
+    { to: "/graph", tourId: "sidebar-item-graph", label: "Graph", icon: Share2 },
   ];
 
   return (
@@ -93,7 +96,7 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto py-3">
-        {items.map(({ to, label, icon: Icon, badge }) => {
+        {items.map(({ to, tourId, label, icon: Icon, badge }) => {
           const active =
             to === "/"
               ? location.pathname === "/"
@@ -104,6 +107,7 @@ export function Sidebar() {
               key={to}
               to={to}
               end={to === "/"}
+              data-tour={tourId}
               className={cn(
                 "flex items-center gap-2.5 px-4 py-2 mx-2 rounded-md text-sm transition-colors",
                 active
@@ -133,6 +137,7 @@ export function Sidebar() {
       <div className="border-t border-border p-2 space-y-0.5">
         <NavLink
           to="/settings"
+          data-tour="sidebar-item-settings"
           className={({ isActive }) =>
             cn(
               "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors",

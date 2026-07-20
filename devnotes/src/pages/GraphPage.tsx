@@ -71,10 +71,13 @@ export function GraphPage() {
   const [tickGen, setTickGen] = useState(0);
   const navigate = useNavigate();
   const rafRef = useRef<number>(0);
-  const dragRef = useRef<{ id: string; ox: number; oy: number } | null>(null);
+  const dragRef = useRef<{ id: string; ox: number; oy: number; sx: number; sy: number } | null>(null);
   const movedRef = useRef(false);
   const panRef = useRef<{ x: number; y: number } | null>(null);
   const transformRef = useRef({ x: 0, y: 0, k: 1 });
+  // Pixels of mouse movement before a press becomes a drag. Below this it's
+  // still treated as a click so navigating to a node actually works.
+  const DRAG_THRESHOLD_PX = 4;
 
   // Load all three data sources
   useEffect(() => {
@@ -238,7 +241,10 @@ export function GraphPage() {
 
     for (const n of allNodes) { n.vx = 0; n.vy = 0; }
     setLayout({ nodes: allNodes, edges: allEdges });
-  }, [notes, skills, projects, filter, hideOrphans, tickGen]);
+    // NOTE: filter / hideOrphans are intentionally NOT in this effect's deps.
+    // They're applied in the render layer; the simulation only needs to
+    // re-run when the underlying data or the user clicks "Reset layout".
+  }, [notes, skills, projects, tickGen]);
 
   // Apply filter on top of the layout
   const visibleIds = new Set<string>();
@@ -374,6 +380,28 @@ export function GraphPage() {
     };
   }, [layout, hovered, visibleIds, visibleEdges, highlightedIds]);
 
+  // Watch the canvas's parent box for size changes (e.g. sidebar collapse,
+  // window resize, layout shifts) and re-measure the canvas. The previous
+  // version only listened to window resize, so dragging the app edge or
+  // collapsing the sidebar would leave the canvas with stale pixel dims.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const parent = canvas.parentElement;
+    if (!parent || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      const dpr = window.devicePixelRatio || 1;
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      const ctx = canvas.getContext("2d");
+      if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    });
+    ro.observe(parent);
+    return () => ro.disconnect();
+  }, []);
+
   // Mouse handlers
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -392,9 +420,12 @@ export function GraphPage() {
     const findNode = (p: { x: number; y: number }) => {
       let best: { n: Node; d: number } | null = null;
       for (const n of nodes) {
-        const r = n.type === "skill" ? 9 : n.type === "project" ? 7 : 6;
+        // Match the visual radius in nodeRadius() (line below) + a small
+        // padding so high-degree nodes still feel easy to click on.
+        const base = n.type === "skill" ? 6 : n.type === "project" ? 5 : 4;
+        const r = base + Math.min(n.degree, 8) * 0.6 + 3;
         const d = Math.hypot(n.x - p.x, n.y - p.y);
-        if (d < r + 2 && (!best || d < best.d)) best = { n, d };
+        if (d < r && (!best || d < best.d)) best = { n, d };
       }
       return best;
     };
@@ -404,7 +435,13 @@ export function GraphPage() {
       const hit = findNode(p);
       if (hit) {
         movedRef.current = false;
-        dragRef.current = { id: hit.n.id, ox: hit.n.x - p.x, oy: hit.n.y - p.y };
+        dragRef.current = {
+          id: hit.n.id,
+          ox: hit.n.x - p.x,
+          oy: hit.n.y - p.y,
+          sx: e.clientX,
+          sy: e.clientY,
+        };
       } else {
         panRef.current = { x: e.clientX, y: e.clientY };
       }
@@ -412,11 +449,19 @@ export function GraphPage() {
     const onMove = (e: MouseEvent) => {
       const p = toCanvas(e);
       if (dragRef.current) {
+        // Only flip into "dragging" once the mouse has actually moved enough;
+        // small jitters during a click should still count as a click and
+        // trigger navigation.
+        const dx = e.clientX - dragRef.current.sx;
+        const dy = e.clientY - dragRef.current.sy;
+        if (!movedRef.current && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) {
+          return;
+        }
+        movedRef.current = true;
         const n = nodes.find((x) => x.id === dragRef.current!.id);
         if (n) {
           n.x = p.x + dragRef.current.ox;
           n.y = p.y + dragRef.current.oy;
-          movedRef.current = true;
         }
       } else if (panRef.current) {
         const t = transformRef.current;
@@ -446,8 +491,18 @@ export function GraphPage() {
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const t = transformRef.current;
-      const delta = -e.deltaY * 0.0015;
-      t.k = Math.max(0.2, Math.min(4, t.k + delta));
+      const rect = canvas.getBoundingClientRect();
+      // Cursor position in world coords BEFORE the zoom change.
+      const wx = (e.clientX - rect.left - t.x) / t.k;
+      const wy = (e.clientY - rect.top - t.y) / t.k;
+
+      const newK = Math.max(0.2, Math.min(4, t.k * (1 - e.deltaY * 0.0015)));
+      // Keep the world point under the cursor stationary: after changing k,
+      // the canvas transform must compensate so the same world point lands
+      // under the same screen pixel.
+      t.k = newK;
+      t.x = e.clientX - rect.left - wx * t.k;
+      t.y = e.clientY - rect.top - wy * t.k;
     };
 
     canvas.addEventListener("mousedown", onDown);
@@ -521,9 +576,15 @@ export function GraphPage() {
         </button>
 
         <button
-          onClick={() => setTickGen((g) => g + 1)}
+          onClick={() => {
+            // Reset both the force simulation AND the pan/zoom transform,
+            // otherwise the user can end up in a state where panning and
+            // zooming look weird with the freshly-laid-out graph.
+            transformRef.current = { x: 0, y: 0, k: 1 };
+            setTickGen((g) => g + 1);
+          }}
           className="ml-auto btn-ghost text-xs"
-          title="Re-run force simulation from scratch"
+          title="Re-run force simulation and reset pan/zoom"
         >
           <RotateCcw size={12} /> Reset layout
         </button>
