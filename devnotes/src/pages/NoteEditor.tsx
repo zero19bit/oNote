@@ -303,17 +303,21 @@ export function NoteEditor() {
     setEditorInstance(ed);
   }, []);
 
-  // Seed the editor with the loaded note content. Fires once on
-  // initial mount and again when the user navigates to a different
-  // note (`note.id` changes).
+  // Seed the editor when (a) a fresh editor instance is mounted
+  // (e.g. right after switching back from preview/recall, since the
+  // conditional render unmounts it) or (b) the user navigates to a
+  // different note. We read from the `content` state — not
+  // `note.content` — so the editor is restored to whatever the user
+  // most recently typed rather than whatever was last persisted to
+  // the DB. Using `note.content` here caused the "switch to preview
+  // and back, edits vanish" bug because the DB version was stale.
   useEffect(() => {
     if (!editorInstance || !note) return;
-    editorRef.current?.setMarkdown(note.content);
-    // Reset the dirty flag — seeding shouldn't count as a user edit.
-    dirty.current = false;
-    setSaveStatus("saved");
-    // We only want to react to a note switch, not every editor state
-    // change, so we deliberately don't include editorInstance in deps.
+    editorRef.current?.setMarkdown(content);
+    // We deliberately do NOT reset `dirty.current` or `saveStatus`
+    // here. The `useEffect([id])` already handles the reset when a
+    // genuinely new note is loaded, and on a mode toggle we want to
+    // keep any pending-dirty state intact.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note?.id, editorInstance]);
 
