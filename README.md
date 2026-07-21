@@ -19,6 +19,30 @@
 
 ---
 
+## Screenshots
+
+| Dashboard | Skills |
+|------|-------|
+| ![](Screenshots/Dashboard.png) | ![](Screenshots/Skills.png) |
+
+| Notes | Snippets |
+|------|-------|
+| ![](Screenshots/Notes.png) | ![](Screenshots/Snippets.png) |
+
+| Review | Resources |
+|------|-------|
+| ![](Screenshots/Review.png) | ![](Screenshots/Resources.png) |
+
+| Projects | Daily |
+|------|-------|
+| ![](Screenshots/Projects.png) | ![](Screenshots/Daily.png) |
+
+| Inbox | Graph |
+|------|-------|
+| ![](Screenshots/Inbox.png) | ![](Screenshots/Graph.png) |
+
+---
+
 ## 📥 Download / دانلود
 
 > **🇬🇧 Pre-built binaries live in [Releases](../../releases) for every platform we support. No build tools required — just download, install, run.**
