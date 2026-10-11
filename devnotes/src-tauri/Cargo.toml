@@ -1,6 +1,6 @@
 [package]
 name = "onote"
-version = "0.1.0"
+version = "1.2.0"
 description = "Programmer's notes and syntax"
 authors = ["oNote Contributors"]
 license = "MIT"

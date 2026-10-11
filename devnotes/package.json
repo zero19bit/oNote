@@ -1,7 +1,7 @@
 {
   "name": "onote",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.2.0",
   "type": "module",
   "description": "A note-taking app designed for programmers — knowledge vault, smart review, snippets, and learning tracker.",
   "scripts": {
@@ -65,5 +65,9 @@
   },
   "overrides": {
     "pdfjs-dist": "$pdfjs-dist"
+  },
+  "allowScripts": {
+    "@swc/core@1.15.43": true,
+    "esbuild@0.21.5": true
   }
 }
