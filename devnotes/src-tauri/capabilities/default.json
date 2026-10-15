@@ -27,6 +27,8 @@
     "sql:allow-select",
     "sql:allow-close",
     "global-shortcut:default",
-    "opener:default"
+    "opener:default",
+    "fs:allow-write-text-file",
+    "fs:allow-read-text-file"
   ]
 }
